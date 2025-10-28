@@ -73,7 +73,7 @@ Record type_precat_record : Type := {
 - [dpr_q_type_cat]: reindexing commutes with dependent projections;
 - [reind_pb_type_cat]: the commutative square thus formed is a pullback.
 
-One possibly surprising point is that [reind_pb] uses the square whose commutativity is witnessed by [dpr_q] itself, but by its inverse of [dpr_q].  The point is that [dpr_q] is oriented in the more computationally natural direction [(q A f) ;; (π A) = (π (A{{f}})) ;; f ], but at the same time, it’s more natural to think of [π A{{f}}] as the first projection of the pullback and [q A f] the second. *)
+One possibly surprising point is that [reind_pb] uses the square whose commutativity is witnessed not by [dpr_q] itself, but by its inverse of [dpr_q].  The point is that [dpr_q] is oriented in the more computationally natural direction [(q A f) ;; (π A) = (π (A{{f}})) ;; f ], but at the same time, it’s more natural to think of [π A{{f}}] as the first projection of the pullback and [q A f] the second. *)
 
 End Record_Preview.
 

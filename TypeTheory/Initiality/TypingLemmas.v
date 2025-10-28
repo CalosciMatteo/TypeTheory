@@ -61,7 +61,7 @@ Section Flat_Contexts.
   However, we only need to compare contexts of equal lengths for equality.
 
   As with the basic context judgement, context equality has both a _flat_ form
-  [! |f- Γ === Δ !], and a slightly stronger _stratified_ form [! |f- Γ === Δ !].
+  [! |f- Γ === Δ !], and a slightly stronger _stratified_ form [! |- Γ === Δ !].
 
   Two contexts are flatly equal if they both believe all their types are equal;
   they are stratified-equal if at each stage of construction, they believe this.
