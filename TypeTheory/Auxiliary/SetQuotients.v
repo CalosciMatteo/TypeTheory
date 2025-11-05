@@ -38,6 +38,14 @@ Unset Universe Checking.
       (d : forall x:X, P (setquotpr R x))
       (d_respects_R : forall (x y:X) (r : R x y),
           transportf _ (iscompsetquotpr _ _ _ r) (d x) = d y)
+        (* I notice the presence of the fixed path [(iscompsetquotpr _ _ _ r)]
+          can cause long computation when using [simpl] or [cbn] in subsequent proof.
+          What about stating this hypothesis this way?
+        
+          (d_respects_R : forall (x y:X) (p : setquotpr R x = setquotpr R y),
+            transportf _ p (d x) = d y)
+        
+          The formulations are equivalent since P xx is a set *)
     : forall xx, P xx.
   Proof.
     intros xx.
@@ -60,33 +68,6 @@ Unset Universe Checking.
     apply maponpaths_2, isasetsetquot.
   Defined.
 
-  Definition setquot_rect' {X:UU} {R:eqrel X}
-  (P : setquot R -> UU) (isaset_P : forall xx, isaset (P xx))
-  (d : forall x:X, P (setquotpr R x))
-  (d_respects_R : forall (x y:X) (p : setquotpr R x = setquotpr R y),
-      transportf _ p (d x) = d y)
-  : forall xx, P xx.
-  Proof.
-    intros xx.
-    transparent assert (f : (xx -> P xx)).
-    { intros x. refine (transportf _ _ (d (pr1 x))). apply setquotl0. }
-    apply (pr1image f).
-    apply (squash_to_prop (eqax0 (pr2 xx))).
-    2: { apply prtoimage. }
-    apply invproofirrelevance. intros [y Hy] [y' Hy'].
-    apply subtypePath. { intro; apply isapropishinh. } simpl.
-    apply (squash_to_prop Hy). { apply isaset_P. }
-    clear Hy; intros [x e_xy].
-    apply (squash_to_prop Hy'). { apply isaset_P. }
-    clear Hy'; intros [x' e_xy'].
-    destruct e_xy, e_xy'. subst f; simpl.
-    assert (R_xx' : R (pr1 x) (pr1 x')).
-    { apply (eqax2 (pr2 xx)); [apply x | apply x']. }
-    rewrite <- (d_respects_R _ _ (iscompsetquotpr _ _ _ R_xx')).
-    eapply pathscomp0. 2: { apply pathsinv0, transport_f_f. }
-    apply maponpaths_2, isasetsetquot.
-  Defined.
-
   Definition setquot_rect_comp {X:UU} {R:eqrel X}
       (P : setquot R -> UU) (isaset_P : forall xx, isaset (P xx))
       (d : forall x:X, P (setquotpr R x))
@@ -95,18 +76,6 @@ Unset Universe Checking.
     : forall x, (setquot_rect P isaset_P d d_respects_R) (setquotpr R x) = d x.
   Proof.
     intros x. unfold setquot_rect; simpl.
-    eapply pathscomp0. 2: { apply idpath_transportf. }
-    apply maponpaths_2, isasetsetquot.
-  Defined.
-
-  Definition setquot_rect'_comp {X:UU} {R:eqrel X}
-  (P : setquot R -> UU) (isaset_P : forall xx, isaset (P xx))
-  (d : forall x:X, P (setquotpr R x))
-  (d_respects_R : forall (x y:X) (p : setquotpr R x = setquotpr R y),
-      transportf _ p (d x) = d y)
-  : forall x, (setquot_rect' P isaset_P d d_respects_R) (setquotpr R x) = d x.
-  Proof.
-    intros x. unfold setquot_rect'; simpl.
     eapply pathscomp0. 2: { apply idpath_transportf. }
     apply maponpaths_2, isasetsetquot.
   Defined.
@@ -313,7 +282,7 @@ End toUpstream.
       Generalization of [take_representative_with_isaset]
       so that Y can depend on [setquot R]. *)
     
-    (*  The proof uses [setquot_rect']. This next local lemma contains the
+    (*  The proof uses [setquot_rect]. This next local lemma contains the
       "d_respects_R" part of the proof (opaque since it is an equality in a set)*)
     Local Lemma take_representative_with_isaset_dep_respects
     {X:UU} {R:eqrel X} (xx:setquot R)
@@ -321,23 +290,18 @@ End toUpstream.
     (f : representative xx -> Y xx)
     (H_f : forall x x', f x = f x')
     x y r
-    : transportf
-        (λ xx' : setquot R, xx' = xx → Y xx') r
-        ((λ (x0 : X) (e : setquotpr R x0 = xx), transportb Y e (f (x0,, e))) x)
-    = (λ (x0 : X) (e : setquotpr R x0 = xx), transportb Y e (f (x0,, e))) y.
+    : transportf (λ xx' : setquot R, xx' = xx → Y xx') (iscompsetquotpr R x y r)
+    ((λ (x0 : X) (e : setquotpr R x0 = xx), transportb Y e (f (x0,, e))) x) =
+    (λ (x0 : X) (e : setquotpr R x0 = xx), transportb Y e (f (x0,, e))) y.
     Proof.
       eapply pathscomp0. { use transportf_fun_sec_constant. }    
       apply funextfun; intros e.
       unfold funcomp.
       unfold transportb.
       rewrite transportf_id2.
-      simpl.
       induction e.
-      simpl.
-      rewrite idpath_transportf. (*TODO: delete line*)
       rewrite pathsinv0inv0, pathscomp0rid.
       apply invmap_eq.
-      cbn.
       apply pathsinv0.
       eapply pathscomp0. { use transportb2totransportb. }
       unfold transportb.
@@ -352,7 +316,8 @@ End toUpstream.
     (H_f : forall x x', f x = f x')
     : Y xx.
     Proof.
-    simple refine (setquot_rect' (fun xx' => (xx' = xx -> Y xx')) _ _ _ _ (idpath _)); simpl. (*TODO: check if setquot_rect' is really needed*)
+    simple refine (setquot_rect
+      (fun xx' => (xx' = xx -> Y xx')) _ _ _ _ (idpath _)); simpl.
     - intros xx'; apply impred_isaset; intro. apply H_Y.
     - intros x e.
       exact (transportb _ e (f (x,,e))).
@@ -369,7 +334,7 @@ End toUpstream.
     Proof.
       unfold take_representative_with_isaset_dep.
       destruct x as [x e]; induction e.
-      now rewrite setquot_rect'_comp.
+      now rewrite setquot_rect_comp.
     Qed.
 
   (* TODO: perhaps add [take_representative_with_isaprop], […with_hProp] also *)
