@@ -263,10 +263,6 @@ Section toUpstream.
     intros. apply idpath.
   Defined.
 
-  About transportb2.
-
-    (* (Z : ∏ x : X, Y x → Type) *)
-
   Lemma transportb2totransportb {X : Type} {Y Z : X → Type} {x x' : X}
   (p : x = x') (y' : Y x') (z : Z x')
   : transportb2 (λ (x:X) (_ : Y x) , Z x) p y' z
