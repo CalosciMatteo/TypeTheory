@@ -208,6 +208,7 @@ Section Contexts_Modulo_Equality.
     exact tt.
   Defined.
 
+  (*Why the flat one is used here? In a comment on Typing Lemmas it is written that the stratified one should be used here*)
   Definition derivable_cxteq_hrel {n} : hrel (wellformed_context_of_length n)
   := fun Γ Δ => ∥ derivation_flat_cxteq Γ Δ ∥.
 
@@ -895,14 +896,27 @@ Section Split_Typecat.
     intros ΓΓ'' gg hh Heq.
     use unique_exists; simpl.
     3: { intros. apply isapropdirprod; apply isasetsetquot. }
-    - admit.
+    
+    - unfold map_mod_eq.
+      refine (_,,_).
+    
+      Check map_for_some_rep _ _ .
+      Locate take_context_representative.
+      revert ff Heq.
+      use setquot_rect.
+      { intros. apply isasetsetquot. }
+      + intros f. simpl.
+        admit.
+      + intros f f' f_e. simpl.
+        Search "isapred" "setquot".      
+      admit.
     - split. (* hopefully straightforward with [mapeq_from_path]. *)
       + admit.
       + admit.
     - intros hh' [Hgg Hhh].
       admit.
   Admitted. (* [SyntacticCategory.reind_pb]: hopefully fairly local *)
-
+(*
   Definition syntactic_typecat_structure : typecat_structure syntactic_category.
   Proof.
     exists syntactic_typecat_structure1.
@@ -1125,3 +1139,4 @@ Section Misc.
   Admitted. (* [tm_transportf_tm_expr_as_term_gen]: hopefully not too hard *)
 
 End Misc.
+*)
