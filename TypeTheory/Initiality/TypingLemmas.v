@@ -532,6 +532,56 @@ Section Misc.
                                 (dB_next_typed_renaming _ _)); auto.
   Defined.
 
+  Lemma derive_extend_mapeq_map
+    {Γ Δ : context} 
+    {f f' : raw_context_map Δ Γ}
+    (d_ff' : [! |- f === f' ::: Δ ---> Γ !])
+    {A : ty_expr Γ}
+    {a : tm_expr Δ}
+    (d_a : [! Δ |- a ::: subst_ty f A !])
+    : [! |- extend_raw_context_map f a === extend_raw_context_map f' a
+              ::: Δ ---> Γ;; A !].
+  Proof.
+    use dB_Sn_rect; cbn; [|intro]; simpl;
+    rewrite subst_rename_ty.
+    - apply derive_tmeq_refl.
+      exact d_a.
+    - exact (d_ff' i).
+  Qed.
+
+  Lemma derive_extend_mapeq_tm
+    {Γ Δ : context} 
+    {f : raw_context_map Δ Γ}
+    (d_f : [! |- f ::: Δ ---> Γ !])
+    {A : ty_expr Γ}
+    {a a' : tm_expr Δ}
+    (d_aa' : [! Δ |- a === a' ::: subst_ty f A !])
+    : [! |- extend_raw_context_map f a === extend_raw_context_map f a'
+              ::: Δ ---> Γ;; A !].
+  Proof.
+    use dB_Sn_rect; cbn; [|intro]; simpl;
+    rewrite subst_rename_ty.
+    - exact d_aa'.
+    - apply derive_tmeq_refl.
+      apply d_f.
+  Qed.
+
+  Lemma derive_extend_mapeq
+  {Γ Δ : context} 
+  {f f' : raw_context_map Δ Γ}
+  (d_ff' : [! |- f === f' ::: Δ ---> Γ !])
+  {A : ty_expr Γ}
+  {a a' : tm_expr Δ}
+  (d_aa' : [! Δ |- a === a' ::: subst_ty f A !])
+  : [! |- extend_raw_context_map f a === extend_raw_context_map f' a'
+            ::: Δ ---> Γ;; A !].
+  Proof.
+    use dB_Sn_rect; cbn; [|intro]; simpl;
+    rewrite subst_rename_ty.
+    - exact d_aa'.
+    - apply d_ff'.
+  Qed.
+
 End Misc.
 
 Section CxtEq_Conv.
@@ -1138,6 +1188,8 @@ End Map_Equality.
 Section Split_Typecat_Laws.
 
   (* TODO: reindexing on types respects equality in both args *)
+  
+    (*WIP?*)
 
   (* TODO: functoriality of reindexing on types *)
 

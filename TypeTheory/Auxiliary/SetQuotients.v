@@ -257,6 +257,7 @@ Section toUpstream.
     refine (!invmap_eq _ _ _ (idpath _)).
   Defined.
 
+  (*TODO: this is already defined in Auxiliary.v*)
   Definition idpath_transportb {X : UU} (P : X -> UU) {x : X} (p : P x) :
   transportb P (idpath x) p = p.
   Proof.
