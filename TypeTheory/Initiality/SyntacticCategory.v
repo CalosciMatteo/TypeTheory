@@ -429,6 +429,28 @@ Section Context_Maps.
     apply derive_tmeq_refl, d_f.
   Qed.
 
+  Lemma raw_mapeq_from_path
+    {ΓΓ ΔΔ : context_mod_eq} (f g : raw_context_map ΓΓ ΔΔ)
+
+  : (∃ (Γ:context_representative ΓΓ) (Δ:context_representative ΔΔ),
+      ∥ [! |- f ::: Γ ---> Δ !]
+        × [! |- g ::: Γ ---> Δ !] ∥)
+  -> (forall i, f i = g i)
+  -> ∀ (Γ:context_representative ΓΓ) (Δ:context_representative ΔΔ),
+      ∥ [! |- f === g ::: Γ ---> Δ !] ∥.
+  Proof.
+      intros H p Γ Δ.
+    unsquash H as [Γ' [Δ' d_fg]].
+    unsquash from Γ Γ' Δ Δ' d_fg
+             (cxteq_context_representatives Γ Γ')
+             (cxteq_context_representatives Δ Δ') as ? d_Γ' ? d_Δ' [d_f d_g] ? ?.
+    
+    refine  (mapeq_from_path
+      (f,,map_for_some_rep f (hinhpr ( Γ' ,, Δ' ,, (hinhpr d_f))))
+      (g,,map_for_some_rep g (hinhpr ( Γ' ,, Δ' ,, (hinhpr d_g))))
+      _  Γ Δ).
+    exact p.
+  Qed.
 End Context_Maps.
 
 Section Context_Map_Operations.
@@ -617,6 +639,9 @@ Section Syntactic_Types.
   Local Definition type_mod_eq {n} (ΓΓ : context_of_length_mod_eq n) : UU
   := setquot (@typeeq_eqrel _ ΓΓ).
 
+  Local Definition type_mod_eq_pr {n} {ΓΓ : context_of_length_mod_eq n} (A : type_over ΓΓ) : type_mod_eq ΓΓ
+  := (setquotpr (@typeeq_eqrel _ ΓΓ) A).
+
   Local Definition type_representative {n} {ΓΓ : _ n} (AA : type_mod_eq ΓΓ) : UU
   := ∑ (A : type_over ΓΓ), setquotpr _ A = AA.
   Coercion type_representative : type_mod_eq >-> UU.
@@ -721,6 +746,14 @@ Section Split_Typecat.
     exact (subst_derivation _ d_A d_f).
   Qed.
     
+  Local Definition subst_ty_over
+      {ΓΓ : context_mod_eq}
+      {ΓΓ' : context_mod_eq}
+      (f : map ΓΓ' ΓΓ)
+      (A : type_over ΓΓ)
+    : type_over ΓΓ'
+  := (subst_ty f A ,, subst_ty_derivable f A).
+
   Local Definition reind
       {ΓΓ : context_mod_eq} (AA : type_mod_eq ΓΓ)
       {ΓΓ' : context_mod_eq} (ff : map_mod_eq ΓΓ' ΓΓ)
@@ -728,9 +761,7 @@ Section Split_Typecat.
   Proof.
     simple refine (setquotfun2' _ _ ff AA); try split.
     - (* give the reindexed type *)
-      intros f A.
-      exists (subst_ty f A).
-      apply (subst_ty_derivable f A).
+      exact (subst_ty_over).
     - (* respects equality in the map *)
       clear AA ff. intros f f' A e_f Γ'. cbn.
       apply (take_context_representative ΓΓ). { apply propproperty. } intros Γ.
@@ -1046,19 +1077,16 @@ Section Split_Typecat.
             refine (pr12 ((derive_presuppositions _ (d_h_n i) d_Δ))).
   Qed. (*TODO: improve*)
 
-  Local Definition reind_pb
-      {ΓΓ : context_mod_eq} (AA : type_mod_eq ΓΓ)
-      {ΓΓ' : context_mod_eq} (ff : map_mod_eq ΓΓ' ΓΓ)
-    : @isPullback syntactic_category _ _ _ _
-           ff (dpr ΓΓ AA) (dpr ΓΓ' (reind AA ff)) (qmor AA ff)
-           (! dpr_q AA ff).
+  Local Definition reind_pb_Arrow
+    {ΓΓ : context_mod_eq} (AA : type_mod_eq ΓΓ)
+    {ΓΓ' : context_mod_eq} (ff : map_mod_eq ΓΓ' ΓΓ)
+    {ΓΓ'' : context_mod_eq}
+    {gg : map_mod_eq ΓΓ'' ΓΓ'}
+    {hh : map_mod_eq ΓΓ'' (ext ΓΓ AA)}
+    (Heq : ((gg : syntactic_category⟦ _, _ ⟧) ;; ff)%mor = ((hh : syntactic_category⟦ _, _ ⟧) ;; dpr ΓΓ AA)%mor)
+    : map_mod_eq ΓΓ'' (ext ΓΓ' (reind AA ff)).
   Proof.
-    use make_isPullback; simpl.
-    intros ΓΓ'' gg hh Heq.
-    use unique_exists; simpl.
-    3: { intros. apply isapropdirprod; apply isasetsetquot. }
-    - 
-      use (take_representative_with_isaset ff); [use isasetsetquot|intros[f f_rep]|].
+    use (take_representative_with_isaset ff); [use isasetsetquot|intros[f f_rep]|].
       { use (take_representative_with_isaset gg); [use isasetsetquot|intros[g g_rep]|]. 
         { use (take_representative_with_isaset hh); [use isasetsetquot|intros[h h_rep]|]. 
           { 
@@ -1154,13 +1182,271 @@ Section Split_Typecat.
       destruct h as [h h_rep].
       rewrite <-g_rep, <-h_rep in Heq.
       apply (mapeq_from_path (reind_pb_map AA ff g h Heq) (reind_pb_map AA ff g h Heq )).
-      intro. apply idpath. 
-    - split. (* hopefully straightforward with [mapeq_from_path]. *)
-      + admit.
-      + admit.
-    - intros hh' [Hgg Hhh].
-      admit.
-  Admitted. (* [SyntacticCategory.reind_pb]: hopefully fairly local *)
+      intro. apply idpath.
+  Defined. (*TODO: improve*)
+
+
+
+  Local Definition reind_pb
+      {ΓΓ : context_mod_eq} (AA : type_mod_eq ΓΓ)
+      {ΓΓ' : context_mod_eq} (ff : map_mod_eq ΓΓ' ΓΓ)
+    : @isPullback syntactic_category _ _ _ _
+           ff (dpr ΓΓ AA) (dpr ΓΓ' (reind AA ff)) (qmor AA ff)
+           (! dpr_q AA ff).
+  Proof.
+    use make_isPullback; simpl.
+    intros ΓΓ'' gg hh Heq.
+    use unique_exists; simpl.
+    3: { intros. apply isapropdirprod; apply isasetsetquot. }
+    - refine (reind_pb_Arrow AA ff Heq).
+    - use (take_representative_with_isaset ff).
+      { use isasetdirprod; use isasetaprop; use isasetsetquot. }
+      2:{ intros ? ?; use proofirrelevance; use isapropdirprod; use isasetsetquot. }
+      intro f.
+      use (take_representative_with_isaset gg).
+      { use isasetdirprod; use isasetaprop; use isasetsetquot. }
+      2:{ intros ? ?; use proofirrelevance; use isapropdirprod; use isasetsetquot. }
+      intro g.
+      use (take_representative_with_isaset hh).
+      { use isasetdirprod; use isasetaprop; use isasetsetquot. }
+      2:{ intros ? ?; use proofirrelevance; use isapropdirprod; use isasetsetquot. }
+      intro h.
+
+      unfold reind_pb_Arrow, dpr.
+
+      rewrite !(take_representative_comp _ _ _ _ f),
+        !(take_representative_comp _ _ _ _ g),
+        !(take_representative_comp _ _ _ _ h).
+
+      revert Heq.
+      destruct f as [f f_rep], g as [g g_rep], h as [h h_rep].
+      rewrite <-(f_rep), <-(g_rep), <-(h_rep).
+      intros Heq.
+      split. (* hopefully straightforward with [mapeq_from_path]. *)
+      + rewrite !compose_setquotpr.
+        use weqpathsinsetquot.
+        use mapeq_from_path.
+        intros i.
+        apply idpath.
+      + use weqpathsinsetquot.
+        use mapeq_for_some_rep.
+        use (take_context_representative ΓΓ'').
+        { use propproperty. }
+        intro Γ''.
+        use (take_context_representative ΓΓ').
+        { use propproperty. }
+        intro Γ'.
+        use (take_context_representative ΓΓ).
+        { use propproperty. }
+        intro Γ.
+
+        assert (dpr_q_A_f := dpr_q AA ff).
+        
+        revert AA hh h h_rep Heq dpr_q_A_f. use setquotunivprop'.
+          { intros. simpl. repeat (apply impred; intro); apply propproperty. }
+          intros A hh h h_rep Heq dpr_q_A_f.
+        use hinhpr.
+        exists Γ''.
+        exists (ext_representative Γ A).
+        cbn.
+
+        rewrite <-(f_rep) in dpr_q_A_f.
+        unfold dpr in dpr_q_A_f.
+        unfold qmor in dpr_q_A_f.
+        rewrite setquot_to_dependent_subquotient_comp in dpr_q_A_f.
+        rewrite !compose_setquotpr in dpr_q_A_f.
+        assert (dpr_q_A_f' := pathscomp0 (!(compose_setquotpr  _ _)) dpr_q_A_f).
+        clear dpr_q_A_f.
+        apply (invmap (weqpathsinsetquot _ _ _)) in dpr_q_A_f'.
+        specialize (dpr_q_A_f' (ext_representative Γ' _) Γ).
+        cbn in dpr_q_A_f'.
+        rewrite compose_setquotpr in Heq.
+        apply (invmap (weqpathsinsetquot _ _ _)) in Heq.
+        cbn in Heq.
+        cbn.
+        specialize (Heq Γ'' Γ).
+        refine (hinhpr _ ⊛ Γ ⊛ Γ' ⊛ Γ''
+          ⊛ (A Γ)
+          ⊛ (map_derivable f Γ' Γ) ⊛ (map_derivable g Γ'' Γ') ⊛ (map_derivable h Γ'' (ext_representative Γ A))
+          ⊛ (subst_ty_derivable f A Γ')
+          ⊛ (Heq) ⊛ (dpr_q_A_f')
+          ⊛ (reind_pb_derivable _ f g h _ Γ'' (ext_representative Γ' _))
+          ⊛ (qmor_derivable (setquotpr typeeq_eqrel A) f (ext_representative Γ' (subst_ty_over f A)) (ext_representative Γ _))
+          ).
+        2:{ 
+          use raw_mapeq_for_some_rep.
+          use hinhpr.
+          exists Γ''.
+          exists Γ.
+          use hinhand; [| use hinhand].
+          - exact (map_derivable (compose_map g f) Γ'' Γ).
+          - exact (map_derivable (compose_map h (dpr_map ΓΓ (type_mod_eq_pr A))) Γ'' Γ).
+          - exact Heq. }
+        intros d_Γ d_Γ' d_Γ'' d_A d_f d_g d_h d_Af d_Heq dpr_q_A_f d_pb d_q.
+
+        assert (d_gf_pbqdpr : [! |- comp_raw_context g f === (comp_raw_context (reind_pb_raw g h) (qmor_raw (setquotpr typeeq_eqrel A) f) ∘ dB_next)%functions ::: Γ'' ---> Γ !]).
+        { change ((comp_raw_context (reind_pb_raw g h) (qmor_raw (setquotpr typeeq_eqrel A) f) ∘ dB_next)%functions)
+            with (comp_raw_context (comp_raw_context (reind_pb_raw g h) (qmor_raw (setquotpr typeeq_eqrel A) f)) (dB_next_context_map _)).
+            
+          rewrite assoc_raw_context. 
+
+          refine (derive_mapeq_sym _ _ _ _ _).
+          { exact d_Γ''. }
+          { exact d_Γ. }
+          { refine (derive_comp d_pb _).
+            refine (derive_comp_dB_next_context_map _ d_Γ d_A).
+            exact d_q. }
+          { exact (derive_comp d_g d_f). }
+          simple refine (derive_mapeq_trans d_Γ'' d_Γ _ _ (derive_comp d_g d_f) (comp_raw_context_cong_r _ d_pb dpr_q_A_f  ) _ ).
+          { use (derive_comp d_pb).
+            refine (derive_comp_dB_next_context_map _ d_Γ d_A).
+            exact d_q. }
+          { use (derive_comp d_pb).
+            exact (derive_comp (derive_dB_next_context_map d_Γ' d_Af) d_f). }
+          { exact d_Γ''. }
+          rewrite <-assoc_raw_context.
+          change (comp_raw_context (reind_pb_raw g h) (dB_next_context_map ΓΓ')) with (raw_of_context_map g).
+          use derive_mapeq_refl.
+          { use (derive_comp d_g d_f). }
+        }
+
+        use dB_Sn_rect.
+        * cbn.
+        change ((Γ ;; A) dB_top) with (rename_ty dB_next A).
+        use derive_tmeq_refl.
+
+        refine (derive_tm_conv _ _ _ _ _ _ _ (d_h dB_top)).
+        { refine (subst_derivation [! _ |- _ !] _ d_h).
+          cbn.
+          change ((Γ ;; A) dB_top) with (rename_ty dB_next A).
+          refine (rename_derivation ([! _ |- _ !]) d_A (dB_next_typed_renaming Γ A) ). }
+        { refine (subst_derivation [! _ |- _ !] _ (derive_comp d_pb d_q)).
+          refine (rename_derivation ([! _ |- _ !]) d_A (dB_next_typed_renaming Γ A) ). }
+        { unfold ext_representative.
+          cbn.
+          change ((Γ ;; A) dB_top) with (rename_ty dB_next A).
+          rewrite !subst_rename_ty.
+          
+          use (substeq_derivation [! _ |- _ !] d_A d_Γ'' _ _ ).
+          { refine (derive_comp_dB_next_context_map _ d_Γ d_A).
+            exact d_h. }
+          { refine (derive_comp_dB_next_context_map _ d_Γ d_A).
+            exact (derive_comp d_pb d_q). }
+          refine (derive_mapeq_trans d_Γ'' d_Γ (derive_comp_dB_next_context_map _ d_Γ d_A) (derive_comp d_g d_f) _ (derive_mapeq_sym d_Γ'' d_Γ (derive_comp d_g d_f) (derive_comp_dB_next_context_map _ d_Γ d_A)  d_Heq) _).
+          { exact d_h. }
+          { use (derive_comp d_pb).
+            refine (derive_comp_dB_next_context_map _ d_Γ d_A).
+            exact d_q. }
+          { exact d_h. }
+          exact d_gf_pbqdpr.
+          }
+        * cbn.
+          intro i.
+          rewrite subst_rename_tm.
+          cbn in d_Heq.
+          cbn.
+          change ((extend_raw_context_map g (h dB_top) ∘ dB_next)%functions) with (raw_of_context_map g).
+          
+          refine (derive_tmeq_conv _ _ _ _ _ _ _ _ (d_Heq i)).
+          --refine (pr1 (derive_presuppositions _ (d_Heq i) d_Γ'')).
+          --change ((Γ;; A) (dB_next i)) with (rename_ty dB_next (Γ i)).
+            cbn.
+            refine (subst_derivation ([! (Γ;;A) |- (rename_ty dB_next (Γ i)) !]) _ _).
+            { change dB_next with (typed_renaming_pr1 (dB_next_typed_renaming Γ A)).
+              use (rename_derivation ([! Γ |- (Γ i) !]) ).
+              use (derivation_from_flat_context (_,,derive_flat_cxt_from_strat d_Γ)). }
+            change (extend_raw_context_map g (h dB_top)) with (reind_pb_raw g h).
+            exact (derive_comp d_pb d_q).
+          --cbn.
+            change (extend_raw_context_map g (h dB_top)) with (reind_pb_raw g h).
+            cbn.
+            change ((Γ;; A) (dB_next i)) with (rename_ty dB_next (Γ i)).
+            rewrite subst_rename_ty.
+            use (substeq_derivation ([! Γ  |- (Γ i) !]) _ _ (derive_comp d_g d_f)).
+            { use (derivation_from_flat_context (_,,derive_flat_cxt_from_strat d_Γ)). }
+            { use (d_Γ'' ). }
+            { refine (derive_comp_dB_next_context_map _ d_Γ d_A).
+              exact (derive_comp d_pb d_q). }
+            exact d_gf_pbqdpr.
+    - intros pb' [Hgg Hhh].
+      use (take_context_representative ΓΓ'').
+      { use isasetsetquot. }
+      intro Γ''.
+      use (take_context_representative ΓΓ').
+      { use isasetsetquot. }
+      intro Γ'.
+      use (take_context_representative ΓΓ).
+      { use isasetsetquot. }
+      intro Γ.
+
+      use (take_representative_with_isaset ff);
+        [use isasetaprop; use isasetsetquot | intro f | intros ? ?;  use proofirrelevance; use isasetsetquot].
+      use (take_representative_with_isaset gg);
+        [use isasetaprop; use isasetsetquot | intro g | intros ? ?;  use proofirrelevance; use isasetsetquot].
+      use (take_representative_with_isaset hh);
+        [use isasetaprop; use isasetsetquot | intro h | intros ? ?;  use proofirrelevance; use isasetsetquot].
+      (* assert (dpr_q_A_f := dpr_q AA ff). *)
+
+      apply pathsinv0.
+      unfold reind_pb_Arrow.
+      rewrite take_representative_comp. 2:{exact f. }
+      eapply pathscomp0; [ use take_representative_comp; exact g |].
+      eapply pathscomp0; [ use take_representative_comp; exact h |].
+      apply pathsinv0.
+
+      destruct f as [f f_rep], g as [g g_rep], h as [h h_rep].
+
+      revert pb' Heq Hgg Hhh.
+      
+      rewrite <-!(f_rep), <-!(g_rep), <-!(h_rep).
+      revert AA hh h h_rep. use setquotunivprop'.
+        { intros. simpl. repeat (apply impred; intro); apply isasetsetquot. }
+        intros A hh h h_rep.
+      
+      intros ppbb' Heq Hgg Hhh.
+      use (take_representative_with_isaset ppbb').
+      { use isasetaprop. use isasetsetquot. }
+      2:{ intros ? ?. use proofirrelevance.  use isasetsetquot. }
+      intro pb'.
+      revert Heq Hgg Hhh.
+      destruct pb' as [pb' pb'_rep].
+      rewrite <-!(pb'_rep).
+      
+      intros Heq Hgg Hhh.
+
+      use weqpathsinsetquot.
+      use mapeq_for_some_rep.
+      cbn.
+
+      apply hinhpr. (**)
+      exists Γ'', (ext_representative Γ' (subst_ty_over f A)).
+
+      unfold dpr, qmor in Heq, Hgg, Hhh.
+      rewrite setquot_to_dependent_subquotient_comp in Hhh.
+      rewrite !compose_setquotpr in Heq.
+      rewrite !compose_setquotpr in Hgg.
+       
+      simpl in Hhh.
+
+      apply (pathscomp0 (pathsinv0 (compose_setquotpr _ _))) in Hhh.
+      apply (invmap (weqpathsinsetquot _ _ _)) in Heq, Hgg, Hhh.
+      cbn in Heq, Hgg, Hhh.
+
+      specialize (Heq Γ'' Γ).
+      specialize (Hgg Γ'' Γ').
+      specialize (Hhh Γ'' (ext_representative Γ A)).
+
+      unfold reind_pb_raw.
+
+      refine (hinhpr _ ⊛ Γ'' ⊛ Γ' ⊛ Γ
+        ⊛ A Γ
+        ⊛ (map_derivable f Γ' Γ) ⊛ (map_derivable g Γ'' Γ') ⊛ (map_derivable h Γ'' (ext_representative Γ A))
+        ⊛ (map_derivable pb' Γ'' (ext_representative Γ' (subst_ty_over f A)))
+        ⊛ Heq ⊛ Hgg ⊛ Hhh).
+      intros d_Γ'' d_Γ' d_Γ d_A d_f d_g d_h d_pb' d_Heq d_Hgg d_Hhh.
+      unfold qmor_raw in d_Hhh.
+    exact (derive_extend_mapeq_uniquness d_Γ'' d_Γ' d_Γ d_A d_g d_h d_f d_pb' d_Hgg d_Hhh).
+  Qed. (* [SyntacticCategory.reind_pb]: hopefully fairly local *)
 
   Definition syntactic_typecat_structure : typecat_structure syntactic_category.
   Proof.

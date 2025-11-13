@@ -582,6 +582,8 @@ Section Misc.
     - apply d_ff'.
   Qed.
 
+
+
 End Misc.
 
 Section CxtEq_Conv.
@@ -1183,6 +1185,18 @@ well-typed.
     refine (derive_idmap_gen _ _); auto using derive_flat_cxteq_sym.
   Defined.
 
+  Lemma raw_mapeq_from_path
+    {Γ Δ : context} {f g : raw_context_map Γ Δ}
+    (d_f : [! |- f ::: Γ ---> Δ !])
+    (H : forall i, f i = g i)
+    : [! |- f === g ::: Γ ---> Δ !].
+  Proof.
+    intro i.
+    rewrite <-(H i).
+    use (derive_tmeq_refl).
+    exact (d_f i).
+  Qed.
+
 End Map_Equality.
 
 Section Split_Typecat_Laws.
@@ -1244,5 +1258,103 @@ Section Split_Typecat_Laws.
     refine (derive_flat_extend_context _ _ (dB_next i)); assumption.
   Defined.
   Opaque derive_dB_next_context_map.
+
+  Lemma derive_comp_dB_next_context_map {Δ Γ : context} {A} {f : raw_context_map Δ (Γ;;A)}
+    (d_f: [! |- f ::: Δ ---> Γ;;A !])
+    (d_Γ : [! |f- Γ !]) (*TTODO: needed?*)
+    (d_A : [! Γ |- A !])
+    : [! |- f ∘ dB_next ::: Δ ---> Γ !].
+  Proof.
+    refine (derive_comp d_f (derive_dB_next_context_map d_Γ d_A)).
+  Defined.
+  Opaque derive_dB_next_context_map.
+
+  Lemma derive_extend_mapeq_uniquness
+  {Δ Γ' Γ : context}
+  (d_Δ : [! |f- Δ !]) (d_Γ' : [! |f- Γ' !]) (d_Γ : [! |f- Γ !]) 
+  {A} (d_A : [! Γ |- A !])
+  {g : raw_context_map Δ Γ'} (d_g : [! |- g ::: Δ ---> Γ' !])
+  {h : raw_context_map Δ (Γ;;A)} (d_h : [! |- h ::: Δ ---> Γ;;A !])
+  {f : raw_context_map Γ' Γ} (d_f : [! |- f :::  Γ' ---> Γ !])
+  {gh : raw_context_map Δ (Γ';;(subst_ty f A))} (d_gh : [! |- gh ::: Δ ---> Γ';;(subst_ty f A) !])
+  (H_g : [! |- comp_raw_context gh (dB_next_context_map Γ') === g ::: Δ ---> Γ' !]) 
+  (H_h : [! |- comp_raw_context gh (weaken_raw_context_map f) === h ::: Δ ---> Γ;;A !] )
+  : [! |- gh === extend_raw_context_map g (h dB_top) ::: Δ ---> Γ';;(subst_ty f A) !].
+  Proof.
+  assert (d_fA := (subst_derivation [! _ |- _ !] d_A d_f)).
+  assert (d_gh_dbnext := (derive_comp_dB_next_context_map d_gh d_Γ' d_fA) ).
+  assert (d_w := (derive_weaken_map _ _ d_f d_A)).
+  assert (d_gh_w_dbnext : [! |- comp_raw_context gh (weaken_raw_context_map f) ∘ dB_next ::: Δ ---> Γ !]).
+  { use (derive_comp_dB_next_context_map _ d_Γ d_A).
+    use (derive_comp d_gh). 
+    exact (derive_weaken_map _ _ d_f d_A).  }
+  use dB_Sn_rect.
+  - cbn. change ((Γ';; subst_ty f A) dB_top) with (rename_ty dB_next (subst_ty f A)).
+    rewrite subst_rename_ty. 
+    refine (derive_tmeq_conv _ _ _ _ _ _ _ _ (H_h dB_top)); change ((Γ;;A) dB_top) with (rename_ty dB_next A).
+    { rewrite subst_rename_ty.
+      refine ((subst_derivation [! _ |- _ !]) d_A _ _ d_gh_w_dbnext). } 
+    { use (subst_derivation [! _ |- _ !] _ _).
+      - exact (subst_derivation [! _ |- _ !] d_A d_f).
+      - exact d_gh_dbnext. }
+      rewrite subst_subst_ty, subst_rename_ty.
+    refine ((substeq_derivation ([! Γ  |- A !])) d_A _ _ _ _ _ _ _).
+    { exact d_Δ. }
+    { exact d_gh_w_dbnext. }
+    { use (derive_comp _ d_f).
+      exact d_gh_dbnext. }
+
+    change (gh ∘ dB_next) with (comp_raw_context gh (dB_next_context_map _)).
+    change (comp_raw_context gh (weaken_raw_context_map f) ∘ dB_next) with (comp_raw_context (comp_raw_context gh (weaken_raw_context_map f)) (dB_next_context_map _)).
+    rewrite !assoc_raw_context.
+    apply (comp_raw_context_cong_r d_Δ d_gh).
+    use raw_mapeq_from_path.
+    { exact (derive_comp_dB_next_context_map d_w d_Γ d_A). }
+    intro i.
+    cbn.
+    apply rename_as_subst_tm.
+  - intros i. cbn.
+    refine (derive_tmeq_conv _ _ _ _ _ _ _ _ (H_g i)).
+    { exact ((subst_derivation [! _ |- _ !]) (d_Γ' i) _ _ d_gh_dbnext). }
+    { refine ((subst_derivation [! _ |- _ !]) _ _ _ d_gh).
+      refine (derive_flat_extend_context d_Γ' d_fA (dB_next i)). }
+    change ((Γ';; subst_ty f A) (dB_next i)) with (rename_ty dB_next (Γ' i)).
+    rewrite subst_rename_ty.
+    use derive_tyeq_refl.
+    refine ((subst_derivation [! _ |- _ !]) (d_Γ' i) _ _ d_gh_dbnext).
+  Qed.
+
+  Lemma derive_extend_mapeq_uniquness' (*failed try at being more general*)
+  {Γ Δ : context}
+  (d_Γ : [! |f- Γ !]) (d_Δ : [! |f- Δ !])  
+  {f : raw_context_map Δ Γ} (d_f : [! |- f ::: Δ ---> Γ !])
+  {A} {a} (d_a : [! Γ |- a ::: A !])
+  {fa : raw_context_map Δ (Γ;;A)} (d_fa : [! |- fa ::: Δ ---> Γ;;A !])
+  (Hnext : [! |- comp_raw_context fa (dB_next_context_map Γ) === f ::: Δ ---> Γ !] )
+  (Htop : [! Δ |- fa (dB_top) === (subst_tm f a) ::: subst_ty f A !] )
+    : [! |- fa === extend_raw_context_map f (subst_tm f a) ::: Δ ---> Γ;;A !].
+  Proof.
+    assert (d_A : [! Γ |- A !]). { apply (derive_presuppositions _ d_a d_Γ). }
+    assert (d_fa_dbnext := (derive_comp_dB_next_context_map d_fa d_Γ d_A)).
+    use dB_Sn_rect.
+    - cbn. change ((Γ;; A) dB_top) with (rename_ty dB_next A).
+      rewrite subst_rename_ty.
+      refine (derive_tmeq_conv _ _ _ _ _ _ _ _ Htop).
+      { refine ((subst_derivation [! _ |- _ !]) d_A _ _ d_f). }
+      { exact (subst_derivation [! _ |- _ !] d_A d_fa_dbnext). }
+      refine ((substeq_derivation ([! Γ  |- A !])) d_A _ _ _ _ d_f d_fa_dbnext _).
+      { exact d_Δ. }
+      exact  (derive_mapeq_sym d_Δ d_Γ d_fa_dbnext d_f Hnext).
+    - intros i. cbn.
+      refine (derive_tmeq_conv _ _ _ _ _ _ _ _ (Hnext i)).
+      { exact ((subst_derivation [! _ |- _ !]) (d_Γ i) _ _ d_fa_dbnext). }
+      { refine ((subst_derivation [! _ |- _ !]) _ _ _ d_fa).
+        exact (derive_flat_extend_context d_Γ d_A (dB_next i)). }
+      change ((Γ;; A) (dB_next i)) with (rename_ty dB_next (Γ i)).
+      rewrite subst_rename_ty.
+      use derive_tyeq_refl.
+      refine ((subst_derivation [! _ |- _ !]) (d_Γ i) _ _ _).
+      exact (derive_comp_dB_next_context_map d_fa d_Γ d_A).
+  Qed.
 
 End Split_Typecat_Laws.
