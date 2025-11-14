@@ -1240,7 +1240,7 @@ Section Split_Typecat.
         { use propproperty. }
         intro Γ.
 
-        assert (dpr_q_A_f := dpr_q AA ff).
+        assert (dpr_q_A_f := dpr_q AA ff). (*TODO*)
         
         revert AA hh h h_rep Heq dpr_q_A_f. use setquotunivprop'.
           { intros. simpl. repeat (apply impred; intro); apply propproperty. }
@@ -1445,7 +1445,8 @@ Section Split_Typecat.
         ⊛ Heq ⊛ Hgg ⊛ Hhh).
       intros d_Γ'' d_Γ' d_Γ d_A d_f d_g d_h d_pb' d_Heq d_Hgg d_Hhh.
       unfold qmor_raw in d_Hhh.
-    exact (derive_extend_mapeq_uniquness d_Γ'' d_Γ' d_Γ d_A d_g d_h d_f d_pb' d_Hgg d_Hhh).
+      
+    exact (derive_extend_mapeq_uniquness' d_Γ'' d_Γ' d_Γ d_A d_g d_h d_f d_pb' d_Hgg d_Hhh).
   Qed. (* [SyntacticCategory.reind_pb]: hopefully fairly local *)
 
   Definition syntactic_typecat_structure : typecat_structure syntactic_category.
